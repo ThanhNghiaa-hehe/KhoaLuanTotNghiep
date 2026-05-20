@@ -1,5 +1,7 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-torch>=2.4.0
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.6.0+cu118
+torchvision==0.21.0+cu118
+torchaudio==2.6.0+cu118
 transformers>=4.46.0
 datasets>=3.0.0
 evaluate>=0.4.3
