@@ -1,0 +1,15 @@
+Model: Fsoft-AIC/videberta-base
+
+              precision    recall  f1-score   support
+
+   Enjoyment     0.0000    0.0000    0.0000        96
+     Sadness     0.3252    0.3470    0.3357       268
+       Anger     0.4118    0.4987    0.4511       393
+        Fear     0.0000    0.0000    0.0000        79
+     Disgust     0.2825    0.3450    0.3106       258
+    Surprise     0.2589    0.3478    0.2968       230
+       Other     0.0000    0.0000    0.0000        62
+
+    accuracy                         0.3304      1386
+   macro avg     0.1826    0.2198    0.1992      1386
+weighted avg     0.2752    0.3304    0.2999      1386

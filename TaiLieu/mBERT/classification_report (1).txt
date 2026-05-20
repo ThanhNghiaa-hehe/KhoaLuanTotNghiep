@@ -1,0 +1,15 @@
+Model: bert-base-multilingual-cased
+
+              precision    recall  f1-score   support
+
+   Enjoyment     0.4839    0.3125    0.3797        96
+     Sadness     0.5602    0.5037    0.5305       268
+       Anger     0.7139    0.6921    0.7028       393
+        Fear     0.5833    0.5316    0.5563        79
+     Disgust     0.4416    0.5426    0.4870       258
+    Surprise     0.5484    0.6652    0.6012       230
+       Other     0.5000    0.2742    0.3542        62
+
+    accuracy                         0.5693      1386
+   macro avg     0.5473    0.5031    0.5159      1386
+weighted avg     0.5731    0.5693    0.5661      1386

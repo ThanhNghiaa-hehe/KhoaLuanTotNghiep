@@ -1,0 +1,15 @@
+Model: FPTAI/velectra-base-discriminator-cased
+
+              precision    recall  f1-score   support
+
+   Enjoyment     0.5312    0.3542    0.4250        96
+     Sadness     0.6174    0.6082    0.6128       268
+       Anger     0.7683    0.8015    0.7846       393
+        Fear     0.6000    0.6076    0.6038        79
+     Disgust     0.5376    0.5543    0.5458       258
+    Surprise     0.6625    0.6913    0.6766       230
+       Other     0.5968    0.5968    0.5968        62
+
+    accuracy                         0.6486      1386
+   macro avg     0.6163    0.6020    0.6065      1386
+weighted avg     0.6449    0.6486    0.6454      1386

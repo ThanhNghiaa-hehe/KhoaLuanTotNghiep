@@ -1,0 +1,15 @@
+Model: xlm-roberta-base
+
+              precision    recall  f1-score   support
+
+   Enjoyment     0.4889    0.2292    0.3121        96
+     Sadness     0.5784    0.5784    0.5784       268
+       Anger     0.7314    0.8244    0.7751       393
+        Fear     0.5765    0.6203    0.5976        79
+     Disgust     0.5269    0.5698    0.5475       258
+    Surprise     0.6996    0.7391    0.7188       230
+       Other     0.4783    0.1774    0.2588        62
+
+    accuracy                         0.6335      1386
+   macro avg     0.5828    0.5341    0.5412      1386
+weighted avg     0.6215    0.6335    0.6201      1386
