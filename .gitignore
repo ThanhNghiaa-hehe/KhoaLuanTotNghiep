@@ -1,0 +1,31 @@
+# Python virtual environments (Môi trường ảo Python)
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache & compiled files (Cache của Python)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Model training outputs & checkpoints (Kết quả huấn luyện & trọng số mô hình)
+results/
+scratch_results/
+checkpoint-*/
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Temporary MS Office files (Các file tạm thời khi mở Word/Excel)
+~$*.docx
+~$*.doc
+~$*.xlsx
+~$*.pptx
+~WRL*.tmp
+
+# Operating system files (Các file hệ thống)
+.DS_Store
+Thumbs.db

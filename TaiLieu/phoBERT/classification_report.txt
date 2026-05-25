@@ -2,14 +2,14 @@ Model: vinai/phobert-base-v2
 
               precision    recall  f1-score   support
 
-   Enjoyment     0.5488    0.4688    0.5056        96
-     Sadness     0.6250    0.6343    0.6296       268
-       Anger     0.7589    0.8092    0.7833       393
-        Fear     0.6582    0.6582    0.6582        79
-     Disgust     0.5903    0.5194    0.5526       258
-    Surprise     0.6667    0.7217    0.6931       230
-       Other     0.5862    0.5484    0.5667        62
+   Enjoyment     0.7258    0.8015    0.7618       393
+     Sadness     0.6654    0.7609    0.7099       230
+       Anger     0.5714    0.3750    0.4528        96
+        Fear     0.6173    0.6329    0.6250        79
+     Disgust     0.6600    0.6157    0.6371       268
+    Surprise     0.5660    0.4839    0.5217        62
+       Other     0.5579    0.5233    0.5400       258
 
-    accuracy                         0.6631      1386
-   macro avg     0.6334    0.6229    0.6270      1386
-weighted avg     0.6583    0.6631    0.6596      1386
+    accuracy                         0.6537      1386
+   macro avg     0.6234    0.5990    0.6069      1386
+weighted avg     0.6478    0.6537    0.6478      1386
