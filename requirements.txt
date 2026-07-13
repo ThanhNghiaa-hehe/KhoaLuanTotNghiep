@@ -1,12 +1,14 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-torch>=2.4.0
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.6.0+cu118
+torchvision==0.21.0+cu118
+torchaudio==2.6.0+cu118
 transformers>=4.46.0
 datasets>=3.0.0
 evaluate>=0.4.3
 accelerate>=1.0.0
 scikit-learn>=1.5.0
-pandas>=2.2.0
-numpy>=1.26.0
+pandas==2.2.3
+numpy==1.26.4
 matplotlib>=3.9.0
 seaborn>=0.13.0
 underthesea>=6.8.0
