@@ -24,6 +24,16 @@ import seaborn as sns
 import random
 import numpy as np
 import torch
+import torch.serialization
+torch.serialization.add_safe_globals([set])
+if getattr(torch, "_is_patched_load", False) is False:
+    _orig_load = torch.load
+    def _patched_load(*args, **kwargs):
+        kwargs['weights_only'] = False
+        return _orig_load(*args, **kwargs)
+    torch.load = _patched_load
+    torch._is_patched_load = True
+import torch.nn.functional as F
 
 RANDOM_STATE = 42
 def set_seed(seed: int = 42):
@@ -59,6 +69,14 @@ from transformers import (
 from transformers.modeling_outputs import SequenceClassifierOutput
 
 class ViDeBERTaWithMeanPooling(DebertaV2PreTrainedModel):
+    _tied_weights_keys = []
+    _keys_to_ignore_on_load_missing = None
+    _keys_to_ignore_on_load_unexpected = None
+
+    @property
+    def all_tied_weights_keys(self):
+        return {}
+
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -66,7 +84,12 @@ class ViDeBERTaWithMeanPooling(DebertaV2PreTrainedModel):
         self.layernorm = nn.LayerNorm(config.hidden_size)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.dropout = nn.Dropout(getattr(config, "classifier_dropout", None) or getattr(config, "hidden_dropout_prob", 0.1))
+        self._class_weights = None  # Trọng số lớp sẽ được gán sau khi tải mô hình
         self.post_init()
+
+    def set_class_weights(self, weights: torch.Tensor):
+        """Gán trọng số lớp (Inverse Class Frequency) vào mô hình để dùng trong Weighted CE Loss."""
+        self._class_weights = weights
 
     def forward(
         self,
@@ -108,8 +131,14 @@ class ViDeBERTaWithMeanPooling(DebertaV2PreTrainedModel):
 
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            # Focal Loss: phạt nặng mẫu khó, giảm phạt mẫu dễ (gamma=2.0)
+            # 1. Tính CE không trọng số để lấy đúng xác suất dự đoán p_t
+            ce_loss_unweighted = F.cross_entropy(logits.view(-1, self.num_labels), labels.view(-1), reduction='none')
+            pt = torch.exp(-ce_loss_unweighted)
+            # 2. Tính CE có trọng số (Alpha)
+            ce_loss_weighted = F.cross_entropy(logits.view(-1, self.num_labels), labels.view(-1), reduction='none', weight=self._class_weights)
+            # 3. Kết hợp hệ số điều chỉnh (Modulating factor)
+            loss = ((1 - pt) ** 2.0 * ce_loss_weighted).mean()
 
         if not return_dict:
             output = (logits,) + outputs[2:]
@@ -123,28 +152,21 @@ class ViDeBERTaWithMeanPooling(DebertaV2PreTrainedModel):
         )
 
 
-
-# =============================================================================
-#  ██████╗  ██████╗ ███╗   ██╗███████╗██╗ ██████╗
-#  ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝
-#  ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
-#  ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
-#  ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
-#   ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝
-#
-#  ← CHỈ CẦN THAY ĐỔI Ở ĐÂY KHI ĐỔI MODEL ←
-# =============================================================================
-
-# MODEL_NAME = "vinai/phobert-base-v2"   #phobert
+MODEL_NAME = "vinai/phobert-base-v2"   #phobert
 # MODEL_NAME = "bert-base-multilingual-cased" #mBERT
 # MODEL_NAME = "xlm-roberta-base" #xlm-r
 # MODEL_NAME = "FPTAI/vibert-base-cased" #vibert
 # MODEL_NAME = "FPTAI/velectra-base-discriminator-cased" #velectra
-MODEL_NAME   = "Fsoft-AIC/videberta-xsmall"
+# MODEL_NAME   = "Fsoft-AIC/videberta-xsmall"
 
 MAX_LENGTH   = 128
-BATCH_SIZE   = 8
+BATCH_SIZE   = 16
 WEIGHT_DECAY  = 0.01
+
+LOSS_TYPE = "standard"      # Lựa chọn: "standard" (Cross-Entropy), "weighted", "focal"
+LABEL_SMOOTHING = 0.0       # TẮT Label Smoothing (0.0) vì nó làm giảm F1 của mô hình trên dữ liệu mất cân bằng
+USE_AUGMENTATION = False    # Tắt Data Augmentation để tái hiện đúng 100% baseline cũ
+
 
 # Cấu hình tối ưu động tùy theo model để đảm bảo hội tụ ổn định và tránh tràn bộ nhớ VRAM 4GB
 if "videberta" in MODEL_NAME:
@@ -158,14 +180,16 @@ if "videberta" in MODEL_NAME:
 else:
     EPOCHS                      = 5
     LEARNING_RATE               = 2e-5
-    WARMUP_RATIO                = 0.0
+    WARMUP_RATIO                = 0.1  # Sửa lỗi thiếu WARMUP_RATIO cho các model khác
     ADAM_EPSILON                = 1e-8
     EARLY_STOPPING_PATIENCE     = 2
-    TRAIN_BATCH_SIZE            = 8
+    TRAIN_BATCH_SIZE            = BATCH_SIZE
     GRADIENT_ACCUMULATION_STEPS = 1
 
-# Word segmentation bật cho PhoBERT và cả ViDeBERTa (vốn được pre-train bằng PyVi segmented text)
-USE_WORD_SEGMENTATION = MODEL_NAME.startswith("vinai/phobert") or "videberta" in MODEL_NAME
+# Bật tách từ cho PhoBERT, ViDeBERTa (FPTAI viBERT và vELECTRA dùng syllable-level tokenizer, không dùng tách từ)
+USE_WORD_SEGMENTATION = "phobert" in MODEL_NAME.lower() or "videberta" in MODEL_NAME.lower()
+
+
 
 # Thư mục lưu kết quả
 OUTPUT_DIR  = f"./results/{MODEL_NAME.replace('/', '_')}"
@@ -219,6 +243,27 @@ print(f"\nSau khi chia lại:")
 print(f"  Train : {len(train_df):>5}  ({len(train_df)/len(full_df)*100:.1f}%)")
 print(f"  Val   : {len(val_df):>5}  ({len(val_df)/len(full_df)*100:.1f}%)")
 print(f"  Test  : {len(test_df):>5}  ({len(test_df)/len(full_df)*100:.1f}%)")
+
+if USE_AUGMENTATION:
+    try:
+        from augmentation import augment_minority_classes
+    except ImportError:
+        pass  # Nếu chạy trên Colab và đã copy code augmentation lên cell trên, hàm này đã tồn tại
+
+    train_df = augment_minority_classes(train_df, target_count=800)
+    print(f"\nSau khi Augmentation, số mẫu Train: {len(train_df)}")
+
+# ── 1.3b  Tính trọng số lớp (Inverse Class Frequency) cho Weighted CE Loss ──
+train_label_counts = np.bincount(train_df["labels"].values, minlength=7)
+total_train = len(train_df)
+class_weights_np = total_train / (7 * train_label_counts)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class_weights_tensor = torch.tensor(class_weights_np, dtype=torch.float32).to(device)
+
+print(f"\n[Focal Loss] Trọng số lớp (Alpha - Inverse Class Frequency):")
+for i, name in enumerate(LABEL_NAMES):
+    print(f"  {name:>12s}: {class_weights_np[i]:.4f}  (Số mẫu Train: {train_label_counts[i]})")
 
 # ── 1.4  Word Segmentation (chỉ cho PhoBERT) ─────────────────────────────
 def word_segment(text: str) -> str:
@@ -336,6 +381,12 @@ else:
     )
 model = model.float() # Đảm bảo mô hình ở định dạng FP32 để tránh underfitting trên ViDeBERTa
 
+# Gán trọng số lớp vào mô hình ViDeBERTa (nếu đang dùng)
+if "videberta" in MODEL_NAME:
+    model.set_class_weights(class_weights_tensor)
+    print("[Focal Loss] Đã gán Alpha vào ViDeBERTaWithMeanPooling.")
+
+
 training_args = TrainingArguments(
     output_dir                  = OUTPUT_DIR,
     num_train_epochs            = EPOCHS,
@@ -358,6 +409,7 @@ training_args = TrainingArguments(
     metric_for_best_model       = "eval_macro_f1",
     greater_is_better           = True,
 
+    label_smoothing_factor      = LABEL_SMOOTHING,
     save_total_limit            = 2,
     report_to                   = "none",
     seed                        = RANDOM_STATE,
@@ -367,9 +419,65 @@ training_args = TrainingArguments(
     bf16                        = False,   # Đảm bảo bf16 cũng tắt trên GPU T4 của Colab
 )
 
-# ── 3.4  Trainer & train ──────────────────────────────────────────────────
+# ── 3.4  Focal Loss Trainer (cho các model không phải ViDeBERTa) ───────────
+# ViDeBERTa đã tích hợp Focal Loss trực tiếp bên trong hàm forward(),
+# nhưng các model khác (PhoBERT, vELECTRA, ...) dùng AutoModel mặc định nên
+# cần một Custom Trainer để ghi đè hàm tính loss.
+
+class CustomLossTrainer(Trainer):
+    """Trainer tùy chỉnh: áp dụng hàm loss theo cấu hình LOSS_TYPE."""
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        # Lấy labels ra khỏi inputs để model tự không tính loss (hỗ trợ cả ViDeBERTa)
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+        
+        if LOSS_TYPE == "standard":
+            loss = F.cross_entropy(
+                logits.view(-1, model.config.num_labels), 
+                labels.view(-1), 
+                label_smoothing=LABEL_SMOOTHING
+            )
+        elif LOSS_TYPE == "weighted":
+            loss = F.cross_entropy(
+                logits.view(-1, model.config.num_labels), 
+                labels.view(-1), 
+                weight=class_weights_tensor,
+                label_smoothing=LABEL_SMOOTHING
+            )
+        elif LOSS_TYPE == "focal":
+            # 1. Tính CE không trọng số để lấy đúng xác suất dự đoán p_t
+            ce_loss_unweighted = F.cross_entropy(logits.view(-1, model.config.num_labels), labels.view(-1), reduction='none')
+            pt = torch.exp(-ce_loss_unweighted)
+            
+            # 2. Tính CE có trọng số (Alpha) kết hợp Label Smoothing
+            ce_loss_weighted = F.cross_entropy(
+                logits.view(-1, model.config.num_labels), 
+                labels.view(-1), 
+                reduction='none', 
+                weight=class_weights_tensor,
+                label_smoothing=LABEL_SMOOTHING
+            )
+            
+            # 3. Kết hợp hệ số điều chỉnh (Modulating factor)
+            loss = ((1 - pt) ** 2.0 * ce_loss_weighted).mean()
+        else:
+            raise ValueError(f"LOSS_TYPE '{LOSS_TYPE}' không hợp lệ. Chọn 'standard', 'weighted', hoặc 'focal'.")
+            
+        return (loss, outputs) if return_outputs else loss
+
+# Nếu dùng thuật toán standard, ta sẽ dùng luôn Trainer gốc của HuggingFace 
+# để đảm bảo an toàn tuyệt đối 100%, tránh mọi xung đột ngầm.
+if LOSS_TYPE == "standard":
+    TrainerClass = Trainer
+else:
+    TrainerClass = CustomLossTrainer
+
+print(f"[Trainer] Sử dụng: {TrainerClass.__name__} với thuật toán {LOSS_TYPE.upper()}")
+
+# ── 3.5  Khởi tạo Trainer & huấn luyện ────────────────────────────────────
 try:
-    trainer = Trainer(
+    trainer = TrainerClass(
         model           = model,
         args            = training_args,
         train_dataset   = tokenized_dataset["train"],
@@ -379,7 +487,7 @@ try:
         callbacks       = [EarlyStoppingCallback(early_stopping_patience=EARLY_STOPPING_PATIENCE)],
     )
 except TypeError:
-    trainer = Trainer(
+    trainer = TrainerClass(
         model           = model,
         args            = training_args,
         train_dataset   = tokenized_dataset["train"],
@@ -409,6 +517,11 @@ y_pred        = np.argmax(y_pred_logits, axis=-1)
 
 y_true_names  = [id2label[i] for i in y_true]
 y_pred_names  = [id2label[i] for i in y_pred]
+
+# Lưu logits và y_true ra file numpy cho Ensemble Learning
+np.save(os.path.join(OUTPUT_DIR, "test_logits.npy"), y_pred_logits)
+np.save(os.path.join(OUTPUT_DIR, "test_y_true.npy"), y_true)
+print(f"✅ Đã lưu test_logits.npy và test_y_true.npy cho Ensemble")
 
 # ── 4.2  Classification Report ────────────────────────────────────────────
 print("\n" + "="*60)

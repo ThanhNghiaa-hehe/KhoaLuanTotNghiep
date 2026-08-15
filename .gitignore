@@ -1,16 +1,56 @@
-# Python virtual environments (Môi trường ảo Python)
+# ==============================================================================
+# BỎ QUA TOÀN BỘ TÀI LIỆU, BÁO CÁO, SLIDE & KẾT QUẢ (CHỈ GIỮ LẠI CODE)
+# ==============================================================================
+
+# 1. Thư mục tài liệu & báo cáo
+TaiLieu/
+tailieu/
+docs/
+documents/
+
+# 2. File văn bản, tài liệu Word, PDF, Slide, Excel
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+~$*.*
+
+# 3. File dữ liệu bảng biểu, kết quả nặng & ảnh biểu đồ
+*.csv
+*.tsv
+*.npy
+*.npz
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+
+# 4. Bỏ qua file log / text kết quả (nhưng giữ lại requirements.txt)
+*.txt
+!requirements.txt
+*.log
+
+# ==============================================================================
+# MÔI TRƯỜNG ẢO, TRỌNG SỐ MÔ HÌNH & HỆ THỐNG
+# ==============================================================================
+
+# 5. Môi trường ảo Python
 .venv/
 env/
 venv/
 ENV/
 
-# Python cache & compiled files (Cache của Python)
+# 6. Python Cache & Compiled files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Model training outputs & checkpoints (Kết quả huấn luyện & trọng số mô hình)
+# 7. Checkpoints & Kết quả huấn luyện nặng
 results/
 scratch_results/
 checkpoint-*/
@@ -19,13 +59,9 @@ checkpoint-*/
 *.pt
 *.pth
 
-# Temporary MS Office files (Các file tạm thời khi mở Word/Excel)
-~$*.docx
-~$*.doc
-~$*.xlsx
-~$*.pptx
-~WRL*.tmp
-
-# Operating system files (Các file hệ thống)
+# 8. Cấu hình IDE & Hệ điều hành
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
+.agents/
